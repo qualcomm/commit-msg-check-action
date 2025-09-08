@@ -1,47 +1,42 @@
-**After repository creation:**
-- [ ] Update this `README.md`. Update the Project Name, description, and all sections. Remove this checklist.
-- [ ] If required, update `LICENSE.txt` and the License section with your project's approved license
-- [ ] Search this repo for "REPLACE-ME" and update all instances accordingly
-- [ ] Update `CONTRIBUTING.md` as needed
-- [ ] Review the workflows in `.github/workflows`, updating as needed. See https://docs.github.com/en/actions for information on what these files do and how they work.
-- [ ] Review and update the suggested Issue and PR templates as needed in `.github/ISSUE_TEMPLATE` and `.github/PULL_REQUEST_TEMPLATE`
+# commit-check-action
+This GitHub Action enforces consistent commit message formatting for Qualcomm projects. It currently supports the following validations:
 
-# Project Name
+- Commit Subject : Verifies that a subject line is present and does not exceed the specified character limit.
+- Commit Description : Ensures a description is provided and that each line adheres to the defined word wrap limit.
 
-*\<update with your project name and a short description\>*
+# Usage
+Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/commit-check.yml
 
-Project that does ... implemented in ... runs on Qualcomm® *\<processor\>*
+    name: Commit Check Action
 
-## Branches
+    on:
+      pull_request:
+        types: [opened, synchronize, reopened]
+    
+    jobs:
+      check-commits:
+        runs-on: ubuntu-latest
+    
+        steps:
+          - name: Run custom commit check
+            uses: qualcomm-linux-stg/commit-check-action@main
+            env: 
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            with:
+              repo: ${{ github.repository }}
+              pr_number: ${{ github.event.pull_request.number }}
+              desc-char-limit: 72
+              sub-char-limit: 50
 
-**main**: Primary development branch. Contributors should develop submissions based on this branch, and submit pull requests to this branch.
-
-## Requirements
-
-List requirements to run the project, how to install them, instructions to use docker container, etc...
-
-## Installation Instructions
-
-How to install the software itself.
-
-## Usage
-
-Describe how to use the project.
-
-## Development
-
-How to develop new features/fixes for the software. Maybe different than "usage". Also provide details on how to contribute via a [CONTRIBUTING.md file](CONTRIBUTING.md).
 
 ## Getting in Contact
 
-How to contact maintainers. E.g. GitHub Issues, GitHub Discussions could be indicated for many cases. However a mail list or list of Maintainer e-mails could be shared for other types of discussions. E.g.
+If you have questions, suggestions, or issues related to this project, there are several ways to reach out:
 
 * [Report an Issue on GitHub](../../issues)
 * [Open a Discussion on GitHub](../../discussions)
-* [E-mail us](mailto:REPLACE-ME@qti.qualcomm.com) for general questions
+* [E-mail us](mailto:ynancher@qti.qualcomm.com,lint.core@qti.qualcomm.com) for general questions
 
 ## License
 
-*\<update with your project name and license\>*
-
-*\<REPLACE-ME\>* is licensed under the [BSD-3-clause License](https://spdx.org/licenses/BSD-3-Clause.html). See [LICENSE.txt](LICENSE.txt) for the full license text.
+commit-check-action is licensed under the [BSD-3-clause License](https://spdx.org/licenses/BSD-3-Clause.html). See [LICENSE.txt](LICENSE.txt) for the full license text.
