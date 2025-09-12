@@ -20,6 +20,11 @@ inputs:
     default: "50"
     description: "Character limit for subject"
 
+  add-line:
+    required: false
+    default: true
+    description: "force blank line between commit title and body"
+
 runs:
   using: "composite"
   steps:
@@ -47,4 +52,5 @@ runs:
           --repo "${{ inputs.repo }}" \
           --pr-number "${{ inputs.pr_number }}" \
           --desc-limit "${{ inputs.desc-char-limit }}" \
-          --sub-limit "${{ inputs.sub-char-limit }}"
+          --sub-limit "${{ inputs.sub-char-limit }}" \
+          --add-line "${{ inputs.add-line }}"

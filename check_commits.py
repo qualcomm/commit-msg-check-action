@@ -1,3 +1,7 @@
+#!/usr/bin/python
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
 import os
 import sys
 import requests
@@ -10,6 +14,7 @@ def parse_arguments():
     parser.add_argument("--pr-number", required=True)
     parser.add_argument("--desc-limit", type=int, default=72)
     parser.add_argument("--sub-limit", type=int, default=50)
+    parser.add_argument("--add-line", type=str, default="true")
     args = parser.parse_args()
     return args
 
@@ -32,12 +37,18 @@ def fetch_commits(args):
         sys.exit(1)
 
 
-def validate_commit_message(commit, sub_char_limit, desc_char_limit):
+def validate_commit_message(commit, sub_char_limit, desc_char_limit, add_line):
     sha = commit['sha']
     message = commit['commit']['message']
     lines = message.splitlines()
+
+    if add_line.lower() == "true":
+        print("entered add line")
+        if len(lines) >= 2 and lines[1].strip() != "":
+            lines = [lines[0], ""] + lines[1:]
+
     subject = lines[0] if len(lines) >= 1 else ""
-    description = lines[1:] if len(lines) >= 2 else []
+    description = lines[2:] if len(lines) >= 3 else []
 
     errors = []
 
@@ -54,11 +65,11 @@ def validate_commit_message(commit, sub_char_limit, desc_char_limit):
     return sha, errors
 
 
-def process_commits(commits, sub_limit, desc_limit):
+def process_commits(commits, sub_limit, desc_limit, add_line):
     failed_count = 0
 
     for commit in commits:
-        sha, errors = validate_commit_message(commit, sub_limit, desc_limit)
+        sha, errors = validate_commit_message(commit, sub_limit, desc_limit, add_line)
         if errors:
             failed_count += 1
             print(f"\n❌ Commit {sha} failed checks:")
@@ -72,8 +83,8 @@ def process_commits(commits, sub_limit, desc_limit):
 def main():
     args = parse_arguments()
     commits = fetch_commits(args)
-    failed_count = process_commits(commits, args.sub_limit, args.desc_limit)
-
+    failed_count = process_commits(commits, args.sub_limit, args.desc_limit, args.add_line)
+    
     if failed_count:
         print(f"\n❌ {failed_count} commit(s) failed validation.")
         sys.exit(1)
