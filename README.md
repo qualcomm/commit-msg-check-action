@@ -8,8 +8,8 @@ This GitHub Action enforces consistent commit message formatting for Qualcomm pr
 # Usage
 Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/commit-check.yml
 
-    name: Commit Check Action
-
+    name: Commit Msg Check Action
+    
     on:
       pull_request:
         types: [opened, synchronize, reopened]
@@ -17,18 +17,21 @@ Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/
     jobs:
       check-commits:
         runs-on: ubuntu-latest
-
-    steps:
-      - name: Run custom commit check
-        uses: qualcomm/commit-msg-check-action@main
-        env: 
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          repo: ${{ github.repository }}
-          pr_number: ${{ github.event.pull_request.number }}
-          desc-char-limit: 72
-          sub-char-limit: 50
-          check-blank-line: true
+    
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+    
+          - name: Run custom commit check
+            uses: qualcomm/commit-msg-check-action@main
+            env: 
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            with:
+              repo: ${{ github.repository }}
+              pr_number: ${{ github.event.pull_request.number }}
+              desc-char-limit: 72
+              sub-char-limit: 50
+              check-blank-line: true
               
 
 
