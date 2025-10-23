@@ -45,4 +45,4 @@ If you have questions, suggestions, or issues related to this project, there are
 
 ## License
 
-commit-msg-check-action is licensed under the [BSD-3-clause License](https://spdx.org/licenses/BSD-3-Clause.html). See [LICENSE.txt](LICENSE.txt) for the full license text.
+commit-msg-check-action is licensed under the [BSD-3-Clause-Clear License](https://spdx.org/licenses/BSD-3-Clause-Clear.html). See [LICENSE.txt](LICENSE.txt) for the full license text.
