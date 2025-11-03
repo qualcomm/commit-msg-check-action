@@ -48,38 +48,42 @@ def validate_commit_message(commit, sub_char_limit, desc_char_limit, check_blank
 
     signed_off = lines[-1] if n >= 1 else ""
     subject = lines[0] if n >= 1 else ""
-    description = lines[2:-1] if n >= 3 else []
+    
+    # description will be checked based on blank line check
+    if check_blank_line.lower() == "true":
+        description = lines[2:-1] if n >= 3 else []
+    else:
+        description = lines[1:-1] if n >= 2 else []
 
     errors = []
-
     # validate if commit message exists
     if len(subject) == 0:
         errors.append("Commit message is missing subject!")
-    # validate if description exists
-    if len(description) == 0:
-        errors.append("Commit message is missing description!")
     # validate the length of the subject
     if len(subject) > sub_char_limit:
         errors.append(f"Subject exceeds {sub_char_limit} characters!")
+    # check for blank line between subject and description
+    if check_blank_line.lower() == "true":
+        if n > 1 and lines[1].strip() != "":
+            errors.append(
+                "Commit subject and description must be separated by a blank line"
+            )
+    # check for blank line between description and signed-off-by signature
+        if description and (
+            description[-1] != "" or not signed_off.lower().startswith("signed-off-by")
+        ):
+            errors.append(
+                "Commit description and Signed-off-by must be separated by a blank line"
+            )
+    # validate if description exists
+    if len(description) == 0:
+        errors.append("Commit message is missing description!")
     # validate word wrap limit of description
     for line in description:
         if len(line) > desc_char_limit:
             errors.append(
                 f"The following line in the commit description exceeds the maximum allowed length of {desc_char_limit} characters: {line}"
             )
-    # check for blank line between subject and description
-    if description and check_blank_line.lower() == "true":
-        if n > 1 and lines[1].strip() != "":
-            errors.append(
-                "Commit subject and description must be separated by a blank line"
-            )
-    # check for blank line between description and signed-off-by signature
-    if description and (
-        description[-1] != "" or not signed_off.lower().startswith("signed-off-by")
-    ):
-        errors.append(
-            "Commit description and Signed-off-by must be separated by a blank line"
-        )
 
     return sha, errors
 
