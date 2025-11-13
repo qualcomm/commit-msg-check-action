@@ -13,6 +13,7 @@ import check_commits
 class TestCheckCommits(unittest.TestCase):
 
     def setUp(self):
+        self.repo = "test/repo"
         self.sample_commit = {
             "sha": "abc123",
             "commit": {
@@ -72,7 +73,7 @@ class TestCheckCommits(unittest.TestCase):
     def test_process_commits_all_valid(self, mock_stdout):
         commits = [self.sample_commit]
         failed_count = check_commits.process_commits(
-            commits, 50, 72, check_blank_line="true"
+            commits, self.repo, 50, 72, check_blank_line="true"
         )
         self.assertEqual(failed_count, 0)
         self.assertIn("✅ Commit abc123 passed all checks", mock_stdout.getvalue())
@@ -90,7 +91,7 @@ class TestCheckCommits(unittest.TestCase):
         }
         sha, errors = check_commits.validate_commit_message(commit, 50, 72, check_blank_line="false") # check_blank_line is set to false
         self.assertIn("Subject exceeds 50 characters!", errors)
-        self.assertIsNot("Commit subject and description must be separated by a blank line",errors)
+        self.assertIsNot("Subject and description must be separated by a blank line",errors)
     
     def test_validate_commit_message_subject_too_long_and_check_blank_line(self):
         commit = {
@@ -105,7 +106,7 @@ class TestCheckCommits(unittest.TestCase):
         }
         sha, errors = check_commits.validate_commit_message(commit, 50, 72, check_blank_line="true") # check_blank_line is set to true
         self.assertIn("Subject exceeds 50 characters!", errors)
-        self.assertIn("Commit subject and description must be separated by a blank line",errors)
+        self.assertIn("Subject and description must be separated by a blank line",errors)
 
 
 if __name__ == "__main__":
