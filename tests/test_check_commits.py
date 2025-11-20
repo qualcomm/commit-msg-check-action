@@ -31,7 +31,7 @@ class TestCheckCommits(unittest.TestCase):
         mock_args = MagicMock()
         mock_args.repo = "test/repo"
         mock_args.pr_number = "123"
-        mock_args.desc_limit = 72
+        mock_args.body_limit = 72
         mock_args.sub_limit = 50
         mock_args.check_blank_line = "true"
         mock_parse_args.return_value = mock_args
@@ -40,7 +40,7 @@ class TestCheckCommits(unittest.TestCase):
 
         self.assertEqual(args.repo, "test/repo")
         self.assertEqual(args.pr_number, "123")
-        self.assertEqual(args.desc_limit, 72)
+        self.assertEqual(args.body_limit, 72)
         self.assertEqual(args.sub_limit, 50)
         self.assertEqual(args.check_blank_line, "true")
 
@@ -106,7 +106,7 @@ class TestCheckCommits(unittest.TestCase):
         }
         sha, errors = check_commits.validate_commit_message(commit, 50, 72, check_blank_line="true") # check_blank_line is set to true
         self.assertIn("Subject exceeds 50 characters!", errors)
-        self.assertIn("Subject and description must be separated by a blank line",errors)
+        self.assertIn("Subject and body must be separated by a blank line",errors)
 
 
 if __name__ == "__main__":
