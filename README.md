@@ -29,7 +29,7 @@ Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/
             with:
               repo: ${{ github.repository }}
               pr_number: ${{ github.event.pull_request.number }}
-              desc-char-limit: 72
+              body-char-limit: 72
               sub-char-limit: 50
               check-blank-line: true
               

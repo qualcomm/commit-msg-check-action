@@ -6,6 +6,8 @@ import sys
 import requests
 import argparse
 
+api_base_url = os.getenv("GITHUB_API_URL")
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -13,7 +15,7 @@ def parse_arguments():
     )
     parser.add_argument("--repo", required=True)
     parser.add_argument("--pr-number", required=True)
-    parser.add_argument("--desc-limit", type=int, default=72)
+    parser.add_argument("--body-limit", type=int, default=72)
     parser.add_argument("--sub-limit", type=int, default=50)
     parser.add_argument("--check-blank-line", type=str, default="true")
     return parser.parse_args()
@@ -25,7 +27,7 @@ def fetch_commits(args):
         print("::error::No GITHUB_TOKEN found!")
         sys.exit(1)
 
-    url = f"https://api.github.com/repos/{args.repo}/pulls/{args.pr_number}/commits"
+    url = f"{api_base_url}/repos/{args.repo}/commits/{args.pr_number}/comments"
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
@@ -41,33 +43,33 @@ def fetch_commits(args):
     return response.json()
 
 
-def validate_commit_message(commit, sub_char_limit, desc_char_limit, check_blank_line):
+def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank_line):
     sha = commit["sha"]
     message = commit["commit"]["message"]
     lines = message.splitlines()
     n = len(lines)
 
     subject = lines[0] if n >= 1 else ""
-    description = [
+    body = [
         line.strip()
         for line in lines[1:]
         if line.strip() and not line.lower().startswith("signed-off-by")
     ]
-    signed_off = lines[-1] if "Signed-off-by" in lines[-1] else ""
-    missing_sub_desc_line = False
-    missing_desc_sign_line = False
+    signed_off = lines[-1] if "signed-off-by" in lines[-1].lower() else ""
+    missing_sub_body_line = False
+    missing_body_sign_line = False
 
     if check_blank_line.lower() == "true":
         if n > 1 and lines[1].strip() != "":
-            missing_sub_desc_line = True
+            missing_sub_body_line = True
         else:
-            description = [
+            body = [
                 line.strip()
                 for line in lines[2:]
                 if line.strip() and not line.lower().startswith("signed-off-by")
             ]
         if signed_off and lines[-2].strip() != "":
-            missing_desc_sign_line = True
+            missing_body_sign_line = True
 
     errors = []
     if len(subject.strip()) == 0:
@@ -75,17 +77,17 @@ def validate_commit_message(commit, sub_char_limit, desc_char_limit, check_blank
     if len(subject) > sub_char_limit:
         errors.append(f"Subject exceeds {sub_char_limit} characters!")
     if check_blank_line.lower() == "true":
-        if missing_sub_desc_line and subject and description:
-            errors.append("Subject and description must be separated by a blank line")
-        if missing_desc_sign_line and description and signed_off:
+        if missing_sub_body_line and subject and body:
+            errors.append("Subject and body must be separated by a blank line")
+        if missing_body_sign_line and body and signed_off:
             errors.append(
-                "Description and Signed-off-by must be separated by a blank line"
+                "Body and Signed-off-by must be separated by a blank line"
             )
-    if len(description) == 0:
-        errors.append("Commit message is missing description!")
-    for line in description:
-        if len(line) > desc_char_limit:
-            errors.append(f"Line exceeds {desc_char_limit} characters: {line}")
+    if len(body) == 0:
+        errors.append("Commit message is missing a body!")
+    for line in body:
+        if len(line) > body_char_limit:
+            errors.append(f"Line exceeds {body_char_limit} characters: {line}")
 
     return sha, errors
 
@@ -94,7 +96,7 @@ def add_commit_comment(repo, sha, message):
     token = os.getenv("GITHUB_TOKEN")
     if not token:
         return
-    url = f"https://api.github.com/repos/{repo}/commits/{sha}/comments"
+    url = f"{api_base_url}/repos/{repo}/commits/{sha}/comments"
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
@@ -106,7 +108,7 @@ def set_commit_status(repo, sha, state, description):
     token = os.getenv("GITHUB_TOKEN")
     if not token:
         return
-    url = f"https://api.github.com/repos/{repo}/statuses/{sha}"
+    url = f"{api_base_url}/repos/{repo}/statuses/{sha}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
@@ -119,23 +121,23 @@ def set_commit_status(repo, sha, state, description):
     requests.post(url, headers=headers, json=data)
 
 
-def process_commits(commits, repo, sub_limit, desc_limit, check_blank_line):
+def process_commits(commits, repo, sub_limit, body_limit, check_blank_line):
     failed_count = 0
     for commit in commits:
         sha, errors = validate_commit_message(
-            commit, sub_limit, desc_limit, check_blank_line
+            commit, sub_limit, body_limit, check_blank_line
         )
-        print(f"::group:: ❌ Errors in commit {sha}")
         if errors:
+            print(f"::group:: ❌ Errors in commit {sha}")
             failed_count += 1
             for err in errors:
-                print(f"::error file=check_commits.py:: {err}")
+                print(f"::error:: {err}")
             add_commit_comment(repo, sha, "\n".join(errors))
             set_commit_status(repo, sha, "failure", "Commit message validation failed")
+            print("::endgroup::")
         else:
             print(f"✅ Commit {sha} passed all checks.")
             set_commit_status(repo, sha, "success", "Commit message validation passed")
-        print("::endgroup::")
     return failed_count
 
 
@@ -143,7 +145,7 @@ def main():
     args = parse_arguments()
     commits = fetch_commits(args)
     failed_count = process_commits(
-        commits, args.repo, args.sub_limit, args.desc_limit, args.check_blank_line
+        commits, args.repo, args.sub_limit, args.body_limit, args.check_blank_line
     )
 
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
