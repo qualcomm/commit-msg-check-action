@@ -80,9 +80,7 @@ def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank
         if missing_sub_body_line and subject and body:
             errors.append("Subject and body must be separated by a blank line")
         if missing_body_sign_line and body and signed_off:
-            errors.append(
-                "Body and Signed-off-by must be separated by a blank line"
-            )
+            errors.append("Body and Signed-off-by must be separated by a blank line")
     if len(body) == 0:
         errors.append("Commit message is missing a body!")
     for line in body:
