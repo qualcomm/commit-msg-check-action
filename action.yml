@@ -2,18 +2,10 @@ name: "My Python Commit Check"
 description: "Checks commit messages using a Python script"
 
 inputs:
-  repo:
-    required: true
-    description: "Repository name in owner/repo format"
-
-  pr_number:
-    required: true
-    description: "Pull request number"
-
-  desc-char-limit:
+  body-char-limit:
     required: false
     default: "72"
-    description: "Word wrap limit for each line in the description"
+    description: "Word wrap limit for each line in the body"
 
   sub-char-limit:
     required: false
@@ -49,8 +41,8 @@ runs:
       shell: bash
       run: |
         python ${{ github.action_path }}/check_commits.py \
-          --repo "${{ inputs.repo }}" \
-          --pr-number "${{ inputs.pr_number }}" \
-          --desc-limit "${{ inputs.desc-char-limit }}" \
+          --repo "${{ github.repository }}" \
+          --pr-number "${{ github.event.pull_request.number }}" \
+          --body-limit "${{ inputs.body-char-limit }}" \
           --sub-limit "${{ inputs.sub-char-limit }}" \
           --check-blank-line "${{ inputs.check-blank-line }}"
