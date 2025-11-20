@@ -27,7 +27,7 @@ def fetch_commits(args):
         print("::error::No GITHUB_TOKEN found!")
         sys.exit(1)
 
-    url = f"{api_base_url}/repos/{args.repo}/commits/{args.pr_number}/comments"
+    url = f"{api_base_url}/repos/{args.repo}/pulls/{args.pr_number}/commits"
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
