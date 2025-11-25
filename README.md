@@ -18,10 +18,7 @@ Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/
       check-commits:
         runs-on: ubuntu-latest
     
-        steps:
-          - name: Checkout code
-            uses: actions/checkout@v4
-    
+        steps:    
           - name: Run custom commit check
             uses: qualcomm/commit-msg-check-action@main
             env: 
