@@ -20,7 +20,7 @@ Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/
     
         steps:    
           - name: Run custom commit check
-            uses: qualcomm/commit-msg-check-action@main
+            uses: qualcomm/commit-msg-check-action@v1.0.0
             env: 
               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             with:
