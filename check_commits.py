@@ -6,7 +6,7 @@ import sys
 import requests
 import argparse
 
-api_base_url = os.getenv("GITHUB_API_URL")
+api_base_url = "https://api.github.com"
 
 
 def parse_arguments():
@@ -22,25 +22,27 @@ def parse_arguments():
 
 
 def fetch_commits(args):
-    token = os.getenv("GITHUB_TOKEN")
-    if not token:
-        print("::error::No GITHUB_TOKEN found!")
-        sys.exit(1)
-
     url = f"{api_base_url}/repos/{args.repo}/pulls/{args.pr_number}/commits"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github.v3+json",
-    }
-    response = requests.get(url, headers=headers)
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    resp = requests.get(url, headers=headers, timeout=30)
 
-    if response.status_code != 200:
+    if resp.status_code in (401, 403, 404):
+        token = os.getenv("GITHUB_TOKEN")
+        if not token:
+            print(
+                "::error::Please set GITHUB_TOKEN as an environment variable to access private repositories!"
+            )
+            sys.exit(1)
+        headers["Authorization"] = f"Bearer {token}"
+        resp = requests.get(url, headers=headers, timeout=30)
+
+    if resp.status_code != 200:
         print(
-            f"::error::Failed to fetch PR commits: {response.status_code} {response.text}"
+            f"::error::Failed to fetch PR commits: {resp.status_code} {resp.text[:300]}"
         )
         sys.exit(1)
 
-    return response.json()
+    return resp.json()
 
 
 def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank_line):
@@ -145,7 +147,6 @@ def main():
     failed_count = process_commits(
         commits, args.repo, args.sub_limit, args.body_limit, args.check_blank_line
     )
-
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a") as f:
