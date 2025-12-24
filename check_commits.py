@@ -6,7 +6,7 @@ import sys
 import requests
 import argparse
 
-api_base_url = "https://api.github.com"
+api_base_url = os.getenv("GITHUB_API_URL")
 
 
 def parse_arguments():
@@ -23,23 +23,12 @@ def parse_arguments():
 
 def fetch_commits(args):
     url = f"{api_base_url}/repos/{args.repo}/pulls/{args.pr_number}/commits"
-    headers = {"Accept": "application/vnd.github.v3+json"}
-    resp = requests.get(url, headers=headers, timeout=30)
-
-    if resp.status_code in (401, 403, 404):
-        token = os.getenv("GITHUB_TOKEN")
-        if not token:
-            print(
-                "::error::Please set GITHUB_TOKEN as an environment variable to access private repositories!"
-            )
-            sys.exit(1)
-        headers["Authorization"] = f"Bearer {token}"
-        resp = requests.get(url, headers=headers, timeout=30)
-
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+    }
+    resp = requests.get(url, timeout=30, headers=headers)
     if resp.status_code != 200:
-        print(
-            f"::error::Failed to fetch PR commits: {resp.status_code} {resp.text[:300]}"
-        )
+        print(f"::error::Failed to fetch PR commits: {resp.status_code} {resp.text}")
         sys.exit(1)
 
     return resp.json()
@@ -93,24 +82,16 @@ def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank
 
 
 def add_commit_comment(repo, sha, message):
-    token = os.getenv("GITHUB_TOKEN")
-    if not token:
-        return
     url = f"{api_base_url}/repos/{repo}/commits/{sha}/comments"
     headers = {
-        "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
     }
-    requests.post(url, headers=headers, json={"body": message})
+    requests.post(url, json={"body": message}, timeout=30, headers=headers)
 
 
 def set_commit_status(repo, sha, state, description):
-    token = os.getenv("GITHUB_TOKEN")
-    if not token:
-        return
     url = f"{api_base_url}/repos/{repo}/statuses/{sha}"
     headers = {
-        "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
     }
     data = {
@@ -118,7 +99,7 @@ def set_commit_status(repo, sha, state, description):
         "description": description,
         "context": "commit-message-check",
     }
-    requests.post(url, headers=headers, json=data)
+    requests.post(url, json=data, headers=headers, timeout=30)
 
 
 def process_commits(commits, repo, sub_limit, body_limit, check_blank_line):
