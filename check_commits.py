@@ -22,25 +22,16 @@ def parse_arguments():
 
 
 def fetch_commits(args):
-    token = os.getenv("GITHUB_TOKEN")
-    if not token:
-        print("::error::No GITHUB_TOKEN found!")
-        sys.exit(1)
-
     url = f"{api_base_url}/repos/{args.repo}/pulls/{args.pr_number}/commits"
     headers = {
-        "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
     }
-    response = requests.get(url, headers=headers)
-
-    if response.status_code != 200:
-        print(
-            f"::error::Failed to fetch PR commits: {response.status_code} {response.text}"
-        )
+    resp = requests.get(url, timeout=30, headers=headers)
+    if resp.status_code != 200:
+        print(f"::error::Failed to fetch PR commits: {resp.status_code} {resp.text}")
         sys.exit(1)
 
-    return response.json()
+    return resp.json()
 
 
 def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank_line):
@@ -91,24 +82,16 @@ def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank
 
 
 def add_commit_comment(repo, sha, message):
-    token = os.getenv("GITHUB_TOKEN")
-    if not token:
-        return
     url = f"{api_base_url}/repos/{repo}/commits/{sha}/comments"
     headers = {
-        "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
     }
-    requests.post(url, headers=headers, json={"body": message})
+    requests.post(url, json={"body": message}, timeout=30, headers=headers)
 
 
 def set_commit_status(repo, sha, state, description):
-    token = os.getenv("GITHUB_TOKEN")
-    if not token:
-        return
     url = f"{api_base_url}/repos/{repo}/statuses/{sha}"
     headers = {
-        "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
     }
     data = {
@@ -116,7 +99,7 @@ def set_commit_status(repo, sha, state, description):
         "description": description,
         "context": "commit-message-check",
     }
-    requests.post(url, headers=headers, json=data)
+    requests.post(url, json=data, headers=headers, timeout=30)
 
 
 def process_commits(commits, repo, sub_limit, body_limit, check_blank_line):
@@ -145,7 +128,6 @@ def main():
     failed_count = process_commits(
         commits, args.repo, args.sub_limit, args.body_limit, args.check_blank_line
     )
-
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a") as f:
