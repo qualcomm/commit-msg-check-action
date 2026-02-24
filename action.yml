@@ -1,7 +1,15 @@
-name: "My Python Commit Check"
+name: "Commit Msg Check"
 description: "Checks commit messages using a Python script"
 
 inputs:
+  base:
+    description: "Base SHA for the commit range"
+    required: false
+
+  head:
+    description: "Head SHA for the commit range"
+    required: false
+
   body-char-limit:
     required: false
     default: "72"
@@ -14,7 +22,7 @@ inputs:
 
   check-blank-line:
     required: false
-    default: true
+    default: "true"
     description: "check for a blank line between commit title and body"
 
 runs:
@@ -41,8 +49,8 @@ runs:
       shell: bash
       run: |
         python ${{ github.action_path }}/check_commits.py \
-          --repo "${{ github.repository }}" \
-          --pr-number "${{ github.event.pull_request.number }}" \
+          --base "${{ inputs.base }}" \
+          --head "${{ inputs.head }}" \
           --body-limit "${{ inputs.body-char-limit }}" \
           --sub-limit "${{ inputs.sub-char-limit }}" \
           --check-blank-line "${{ inputs.check-blank-line }}"

@@ -9,7 +9,7 @@ This GitHub Action enforces consistent commit message formatting for Qualcomm pr
 Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/commit-check.yml
 
     name: Commit Msg Check Action
-    
+
     on:
       pull_request:
         types: [opened, synchronize, reopened]
@@ -17,13 +17,17 @@ Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/
     jobs:
       check-commits:
         runs-on: ubuntu-latest
-    
-        steps:    
-          - name: Run custom commit check
-            uses: qualcomm/commit-msg-check-action@v1.0.0
-            env: 
-              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        steps:
+          - uses: actions/checkout@v4
             with:
+              fetch-depth: 0
+              ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    
+          - name: Commit Check
+            uses: qualcomm/commit-msg-check-action@v2.0.0
+            with:
+              base: ${{ github.event.pull_request.base.sha }}
+              head: ${{ github.event.pull_request.head.sha }}
               body-char-limit: 72
               sub-char-limit: 50
               check-blank-line: true
