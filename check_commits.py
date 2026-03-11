@@ -12,7 +12,7 @@ def parse_arguments():
         description="Validate commit messages using local Git history (no API/token)."
     )
     parser.add_argument(
-        "--base", required=False, help="Base SHA for the range (base..head)"
+        "--base", required=True, help="Base SHA for the range (base..head)"
     )
     parser.add_argument(
         "--head", required=True, help="Head SHA for the range (or single ref)"
@@ -23,7 +23,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def fetch_commits_local(base, head):
+def fetch_commit_sha(base, head):
     """
     Build a list of commits between base..head (or at head if base is omitted)
     by reading the local repository. The returned objects mirror the minimal
@@ -47,6 +47,10 @@ def fetch_commits_local(base, head):
         print(f"::error::Failed to enumerate commits with git: {e}")
         sys.exit(2)
 
+    return shas
+
+
+def get_commit_msgs(shas):
     commits = []
     for sha in shas:
         try:
@@ -56,53 +60,70 @@ def fetch_commits_local(base, head):
         except subprocess.CalledProcessError as e:
             print(f"::warning::Failed to read commit message for {sha}: {e}")
             msg = ""
-        commits.append({"sha": sha, "commit": {"message": msg}})
+        commits.append({"sha": sha, "message": msg})
     return commits
 
 
-def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank_line):
-    sha = commit["sha"]
-    message = commit["commit"]["message"]
-    lines = message.splitlines()
-    n = len(lines)
-
-    subject = lines[0] if n >= 1 else ""
-    body = [
-        line.strip()
-        for line in lines[1:]
-        if line.strip() and not line.lower().startswith("signed-off-by")
-    ]
-    signed_off = lines[-1] if n > 0 and "signed-off-by" in lines[-1].lower() else ""
-    missing_sub_body_line = False
-    missing_body_sign_line = False
-
-    if check_blank_line.lower() == "true":
-        if n > 1 and lines[1].strip() != "":
-            missing_sub_body_line = True
-        else:
-            body = [
-                line.strip()
-                for line in lines[2:]
-                if line.strip() and not line.lower().startswith("signed-off-by")
-            ]
-        if signed_off and (n >= 2) and lines[-2].strip() != "":
-            missing_body_sign_line = True
-
+def validate_subject(subject, sub_char_limit):
+    """Validate the commit subject line."""
     errors = []
     if len(subject.strip()) == 0:
         errors.append("Commit message is missing subject!")
     if len(subject) > sub_char_limit:
         errors.append(f"Subject exceeds {sub_char_limit} characters!")
+    return errors
+
+
+def validate_body(lines, n, body_char_limit, check_blank_line):
+    """Validate the commit body."""
+    errors = []
+
+    body_index = 1
     if check_blank_line.lower() == "true":
-        if missing_sub_body_line and subject and body:
+        # Check for blank line after subject
+        if n > 1 and lines[1].strip() != "":
             errors.append("Subject and body must be separated by a blank line")
-        if missing_body_sign_line and body and signed_off:
-            errors.append("Body and Signed-off-by must be separated by a blank line")
+        body_index = 2
+    body = [
+        line.strip()
+        for line in lines[body_index:n]
+        if line.strip() and not line.lower().startswith("signed-off-by")
+    ]
     if len(body) == 0:
         errors.append("Commit message is missing a body!")
     for line in body:
         if len(line) > body_char_limit:
             errors.append(f"Line exceeds {body_char_limit} characters: {line}")
+
+    return errors, body
+
+
+def validate_signoff(lines, n, body, check_blank_line):
+    """Validate the Signed-off-by line."""
+    errors = []
+
+    signed_off = lines[-1] if n > 0 and "signed-off-by" in lines[-1].lower() else ""
+
+    if check_blank_line.lower() == "true" and body and signed_off:
+        if n >= 2 and lines[-2].strip() != "":
+            errors.append("Body and Signed-off-by must be separated by a blank line")
+
+    return errors
+
+
+def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank_line):
+    sha = commit["sha"]
+    message = commit["message"]
+    lines = message.splitlines()
+    n = len(lines)
+    subject = lines[0] if n >= 1 else ""
+
+    errors = []
+    subject_errors = validate_subject(subject, sub_char_limit)
+    body_errors, body = validate_body(lines, n, body_char_limit, check_blank_line)
+    signed_off_errors = validate_signoff(lines, n, body, check_blank_line)
+
+    errors.extend(subject_errors + body_errors + signed_off_errors)
 
     return sha, errors
 
@@ -126,15 +147,13 @@ def process_commits(commits, sub_limit, body_limit, check_blank_line):
 
 def main():
     args = parse_arguments()
-
-    # Read commits strictly from the local repository; no network calls.
-    commits = fetch_commits_local(args.base, args.head)
+    shas = fetch_commit_sha(args.base, args.head)
+    commits = get_commit_msgs(shas)
 
     failed_count = process_commits(
         commits, args.sub_limit, args.body_limit, args.check_blank_line
     )
 
-    # Optional run summary for GitHub Actions UI
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a") as f:

@@ -4,11 +4,11 @@ description: "Checks commit messages using a Python script"
 inputs:
   base:
     description: "Base SHA for the commit range"
-    required: false
+    required: true
 
   head:
     description: "Head SHA for the commit range"
-    required: false
+    required: true
 
   body-char-limit:
     required: false
@@ -47,10 +47,11 @@ runs:
 
     - name: Check commit messages
       shell: bash
+      working-directory: ${{ github.workspace }}
       run: |
         python ${{ github.action_path }}/check_commits.py \
-          --base "${{ inputs.base }}" \
-          --head "${{ inputs.head }}" \
+          --base "${{github.event.pull_request.base.sha}}" \
+          --head "${{github.event.pull_request.head.sha}}" \
           --body-limit "${{ inputs.body-char-limit }}" \
           --sub-limit "${{ inputs.sub-char-limit }}" \
           --check-blank-line "${{ inputs.check-blank-line }}"

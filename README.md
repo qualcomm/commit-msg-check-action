@@ -13,21 +13,23 @@ Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/
     on:
       pull_request:
         types: [opened, synchronize, reopened]
-    
+
     jobs:
       check-commits:
         runs-on: ubuntu-latest
+        permissions:
+          contents: read
+          pull-requests: read
         steps:
-          - uses: actions/checkout@v4
+          - name: Check out repository
+            uses: actions/checkout@v4
             with:
+              ref: ${{ github.event.pull_request.head.sha }}
               fetch-depth: 0
-              ref: ${{ github.event.pull_request.head.sha || github.sha }}
-    
+
           - name: Commit Check
             uses: qualcomm/commit-msg-check-action@v2.0.0
             with:
-              base: ${{ github.event.pull_request.base.sha }}
-              head: ${{ github.event.pull_request.head.sha }}
               body-char-limit: 72
               sub-char-limit: 50
               check-blank-line: true

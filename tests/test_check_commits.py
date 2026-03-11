@@ -12,18 +12,25 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import check_commits
 
 
-class TestCommitCheck(unittest.TestCase):
+class TestCheckCommits(unittest.TestCase):
     def setUp(self):
-        self.sample_commit_valid = {
+        self.valid_sample_commit = {
             "sha": "abc123",
-            "commit": {
-                "message": (
-                    "Valid subject\n\n"
-                    "This is a valid description line.\n"
-                    "It continues here.\n\n"
-                    "Signed-off-by: Developer <dev@example.com>"
-                )
-            },
+            "message": (
+                "Valid subject\n\n"
+                "This is a valid description line.\n"
+                "It continues here.\n\n"
+                "Signed-off-by: Developer <dev@example.com>"
+            ),
+        }
+        self.invalid_sample_commit = {
+            "sha": "badcommit1234",
+            "message": (
+                "Invalid subject which is definitely longer than 50 characters"
+                "This is a valid description line.\n"
+                "It continues here."
+                "Signed-off-by: Developer <dev@example.com>"
+            ),
         }
 
     def test_parse_arguments_with_base_head(self):
@@ -50,7 +57,7 @@ class TestCommitCheck(unittest.TestCase):
 
     def test_validate_commit_message_valid(self):
         sha, errors = check_commits.validate_commit_message(
-            self.sample_commit_valid,
+            self.valid_sample_commit,
             sub_char_limit=50,
             body_char_limit=72,
             check_blank_line="true",
@@ -61,13 +68,11 @@ class TestCommitCheck(unittest.TestCase):
     def test_validate_commit_message_subject_too_long_no_blank_check(self):
         commit = {
             "sha": "def456",
-            "commit": {
-                "message": (
-                    "This subject line is way too long and should definitely fail the check\n"
-                    "Body line.\n\n"
-                    "Signed-off-by: Developer <dev@example.com>"
-                )
-            },
+            "message": (
+                "This subject line is way too long and should definitely fail the check\n"
+                "Body line.\n\n"
+                "Signed-off-by: Developer <dev@example.com>"
+            ),
         }
         _sha, errors = check_commits.validate_commit_message(
             commit, sub_char_limit=50, body_char_limit=72, check_blank_line="false"
@@ -83,13 +88,11 @@ class TestCommitCheck(unittest.TestCase):
     def test_validate_commit_message_subject_too_long_with_blank_check(self):
         commit = {
             "sha": "def456",
-            "commit": {
-                "message": (
-                    "This subject line is way too long and should definitely fail the check\n"
-                    "Body line without blank separator\n\n"
-                    "Signed-off-by: Developer <dev@example.com>"
-                )
-            },
+            "message": (
+                "This subject line is way too long and should definitely fail the check\n"
+                "Body line without blank separator\n\n"
+                "Signed-off-by: Developer <dev@example.com>"
+            ),
         }
         _sha, errors = check_commits.validate_commit_message(
             commit, sub_char_limit=50, body_char_limit=72, check_blank_line="true"
@@ -98,7 +101,7 @@ class TestCommitCheck(unittest.TestCase):
         self.assertIn("Subject and body must be separated by a blank line", errors)
 
     def test_process_commits_all_valid_prints_and_returns_zero(self):
-        commits = [self.sample_commit_valid]
+        commits = [self.valid_sample_commit]
         buf = StringIO()
         with redirect_stdout(buf):
             failed = check_commits.process_commits(
@@ -111,14 +114,12 @@ class TestCommitCheck(unittest.TestCase):
     def test_process_commits_mixed_failures(self):
         bad_commit = {
             "sha": "bad999",
-            "commit": {
-                "message": (
-                    "Bad subject with excessive length that violates the rule right away\n"
-                    "Body line\n"
-                )
-            },
+            "message": (
+                "Bad subject with excessive length that violates the rule right away\n"
+                "Body line\n"
+            ),
         }
-        commits = [self.sample_commit_valid, bad_commit]
+        commits = [self.valid_sample_commit, bad_commit]
         buf = StringIO()
         with redirect_stdout(buf):
             failed = check_commits.process_commits(
@@ -128,6 +129,19 @@ class TestCommitCheck(unittest.TestCase):
         self.assertEqual(failed, 1)
         self.assertIn("❌ Errors in commit bad999", out)
         self.assertIn("Subject exceeds 50 characters!", out)
+
+    def test_commits_failures(self):
+        commits = [self.invalid_sample_commit]
+        buf = StringIO()
+        with redirect_stdout(buf):
+            failed = check_commits.process_commits(
+                commits, sub_limit=50, body_limit=72, check_blank_line="true"
+            )
+        out = buf.getvalue()
+        self.assertEqual(failed, 1)
+        self.assertIn("❌ Errors in commit badcommit1234", out)
+        self.assertIn("Subject exceeds 50 characters!", out)
+        self.assertIn("Subject and body must be separated by a blank line", out)
 
 
 if __name__ == "__main__":
