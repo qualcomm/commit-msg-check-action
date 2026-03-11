@@ -9,20 +9,26 @@ This GitHub Action enforces consistent commit message formatting for Qualcomm pr
 Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/commit-check.yml
 
     name: Commit Msg Check Action
-    
+
     on:
       pull_request:
         types: [opened, synchronize, reopened]
-    
+
     jobs:
       check-commits:
         runs-on: ubuntu-latest
-    
-        steps:    
-          - name: Run custom commit check
-            uses: qualcomm/commit-msg-check-action@v1.0.0
-            env: 
-              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        permissions:
+          contents: read
+          pull-requests: read
+        steps:
+          - name: Check out repository
+            uses: actions/checkout@v4
+            with:
+              ref: ${{ github.event.pull_request.head.sha }}
+              fetch-depth: 0
+
+          - name: Commit Check
+            uses: qualcomm/commit-msg-check-action@v2.0.0
             with:
               body-char-limit: 72
               sub-char-limit: 50
