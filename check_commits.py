@@ -44,11 +44,10 @@ def fetch_commits(base, head):
         if not shas:
             return []
         output = subprocess.check_output(
-            ["git", "show", "-s", "--format=%H%x00%B%x00"] + shas,
-            text=True
+            ["git", "show", "-s", "--format=%H%x00%B%x00"] + shas, text=True
         )
         commits = []
-        parts = output.split('\x00')
+        parts = output.split("\x00")
         for i in range(0, len(parts) - 1, 2):
             sha = parts[i].strip()
             message = parts[i + 1] if i + 1 < len(parts) else ""
@@ -163,4 +162,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
