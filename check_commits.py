@@ -14,6 +14,7 @@ TRAILER_PREFIXES = (
     "tested-by:",
 )
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Validate commit messages using local Git history (no API/token)."
@@ -105,8 +106,7 @@ def validate_trailers(lines, body, check_blank_line):
     errors = []
 
     trailer_indices = [
-        i for i, line in enumerate(lines)
-        if line.lower().startswith(TRAILER_PREFIXES)
+        i for i, line in enumerate(lines) if line.lower().startswith(TRAILER_PREFIXES)
     ]
 
     first_trailer_index = 0
@@ -115,9 +115,7 @@ def validate_trailers(lines, body, check_blank_line):
 
     if check_blank_line.lower() == "true" and body:
         if first_trailer_index > 0 and lines[first_trailer_index - 1].strip() != "":
-            errors.append(
-                "Body and trailers must be separated by a blank line"
-            )
+            errors.append("Body and trailers must be separated by a blank line")
 
     return errors
 
