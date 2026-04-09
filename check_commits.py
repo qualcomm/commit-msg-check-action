@@ -6,6 +6,13 @@ import sys
 import argparse
 import subprocess
 
+TRAILER_PREFIXES = (
+    "signed-off-by:",
+    "co-authored-by:",
+    "reviewed-by:",
+    "acked-by:",
+    "tested-by:",
+)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -83,7 +90,7 @@ def validate_body(lines, n, body_char_limit, check_blank_line):
     body = [
         line.strip()
         for line in lines[body_index:n]
-        if line.strip() and not line.lower().startswith("signed-off-by")
+        if line.strip() and not line.lower().startswith(TRAILER_PREFIXES)
     ]
     if len(body) == 0:
         errors.append("Commit message is missing a body!")
@@ -94,15 +101,23 @@ def validate_body(lines, n, body_char_limit, check_blank_line):
     return errors, body
 
 
-def validate_signoff(lines, n, body, check_blank_line):
-    """Validate the Signed-off-by line."""
+def validate_trailers(lines, body, check_blank_line):
     errors = []
 
-    signed_off = lines[-1] if n > 0 and "signed-off-by" in lines[-1].lower() else ""
+    trailer_indices = [
+        i for i, line in enumerate(lines)
+        if line.lower().startswith(TRAILER_PREFIXES)
+    ]
 
-    if check_blank_line.lower() == "true" and body and signed_off:
-        if n >= 2 and lines[-2].strip() != "":
-            errors.append("Body and Signed-off-by must be separated by a blank line")
+    first_trailer_index = 0
+    if trailer_indices:
+        first_trailer_index = trailer_indices[0]
+
+    if check_blank_line.lower() == "true" and body:
+        if first_trailer_index > 0 and lines[first_trailer_index - 1].strip() != "":
+            errors.append(
+                "Body and trailers must be separated by a blank line"
+            )
 
     return errors
 
@@ -117,9 +132,9 @@ def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank
     errors = []
     subject_errors = validate_subject(subject, sub_char_limit)
     body_errors, body = validate_body(lines, n, body_char_limit, check_blank_line)
-    signed_off_errors = validate_signoff(lines, n, body, check_blank_line)
+    trailer_errors = validate_trailers(lines, body, check_blank_line)
 
-    errors.extend(subject_errors + body_errors + signed_off_errors)
+    errors.extend(subject_errors + body_errors + trailer_errors)
 
     return sha, errors
 
