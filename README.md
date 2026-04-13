@@ -28,7 +28,7 @@ Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/
               fetch-depth: 0
 
           - name: Commit Check
-            uses: qualcomm/commit-msg-check-action@v2.0.0
+            uses: qualcomm/commit-msg-check-action@v2
             with:
               base: ${{ github.event.pull_request.base.sha }}
               head: ${{ github.event.pull_request.head.sha }}
