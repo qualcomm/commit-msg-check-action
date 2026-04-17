@@ -9,6 +9,7 @@ import subprocess
 TRAILER_PREFIXES = (
     "signed-off-by:",
     "co-authored-by:",
+    "co-developed-by:",
     "reviewed-by:",
     "acked-by:",
     "tested-by:",
