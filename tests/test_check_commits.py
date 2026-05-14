@@ -61,6 +61,7 @@ class TestCheckCommits(unittest.TestCase):
             sub_char_limit=50,
             body_char_limit=72,
             check_blank_line="true",
+            strict_line_length_check="true",
         )
         self.assertEqual(sha, "abc123")
         self.assertEqual(errors, [])
@@ -75,7 +76,11 @@ class TestCheckCommits(unittest.TestCase):
             ),
         }
         _sha, errors = check_commits.validate_commit_message(
-            commit, sub_char_limit=50, body_char_limit=72, check_blank_line="false"
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="false",
+            strict_line_length_check="true",
         )
         self.assertIn("Subject exceeds 50 characters!", errors)
         self.assertTrue(
@@ -95,7 +100,11 @@ class TestCheckCommits(unittest.TestCase):
             ),
         }
         _sha, errors = check_commits.validate_commit_message(
-            commit, sub_char_limit=50, body_char_limit=72, check_blank_line="true"
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
         )
         self.assertIn("Subject exceeds 50 characters!", errors)
         self.assertIn("Subject and body must be separated by a blank line", errors)
@@ -105,7 +114,11 @@ class TestCheckCommits(unittest.TestCase):
         buf = StringIO()
         with redirect_stdout(buf):
             failed = check_commits.process_commits(
-                commits, sub_limit=50, body_limit=72, check_blank_line="true"
+                commits,
+                sub_limit=50,
+                body_limit=72,
+                check_blank_line="true",
+                strict_line_length_check="true",
             )
         out = buf.getvalue()
         self.assertEqual(failed, 0)
@@ -123,7 +136,11 @@ class TestCheckCommits(unittest.TestCase):
         buf = StringIO()
         with redirect_stdout(buf):
             failed = check_commits.process_commits(
-                commits, sub_limit=50, body_limit=72, check_blank_line="true"
+                commits,
+                sub_limit=50,
+                body_limit=72,
+                check_blank_line="true",
+                strict_line_length_check="true",
             )
         out = buf.getvalue()
         self.assertEqual(failed, 1)
@@ -135,13 +152,90 @@ class TestCheckCommits(unittest.TestCase):
         buf = StringIO()
         with redirect_stdout(buf):
             failed = check_commits.process_commits(
-                commits, sub_limit=50, body_limit=72, check_blank_line="true"
+                commits,
+                sub_limit=50,
+                body_limit=72,
+                check_blank_line="true",
+                strict_line_length_check="true",
             )
         out = buf.getvalue()
         self.assertEqual(failed, 1)
         self.assertIn("❌ Errors in commit badcommit1234", out)
         self.assertIn("Subject exceeds 50 characters!", out)
         self.assertIn("Subject and body must be separated by a blank line", out)
+
+    def test_body_strict_true_long_line_fails(self):
+        commit = {
+            "sha": "long1",
+            "message": ("Valid subject\n\n" + "a" * 80 + "\n"),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
+        )
+        self.assertIn("Line exceeds 72 characters", "".join(errors))
+
+    def test_body_strict_false_single_long_word_passes(self):
+        commit = {
+            "sha": "long2",
+            "message": ("Valid subject\n\n" + "a" * 80 + "\n"),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="false",
+        )
+        self.assertEqual(errors, [])
+
+    def test_body_strict_false_new_word_after_limit_fails(self):
+        line = "a" * 72 + " newword"
+        commit = {
+            "sha": "long3",
+            "message": ("Valid subject\n\n" + line + "\n"),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="false",
+        )
+        self.assertIn("Line exceeds 72 characters", "".join(errors))
+
+    def test_body_strict_false_long_url_passes(self):
+        url = "https://example.com/" + "a" * 100
+        commit = {
+            "sha": "long4",
+            "message": ("Valid subject\n\n" + url + "\n"),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="false",
+        )
+        self.assertEqual(errors, [])
+
+    def test_body_strict_true_long_url_fails(self):
+        url = "https://www.example.com/" + "a" * 100
+        commit = {
+            "sha": "long5",
+            "message": ("Valid subject\n\n" + url + "\n"),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
+        )
+        self.assertIn("Line exceeds 72 characters", "".join(errors))
 
 
 if __name__ == "__main__":
