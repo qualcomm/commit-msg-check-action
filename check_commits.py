@@ -29,6 +29,7 @@ def parse_arguments():
     parser.add_argument("--body-limit", type=int, default=72)
     parser.add_argument("--sub-limit", type=int, default=50)
     parser.add_argument("--check-blank-line", type=str, default="true")
+    parser.add_argument("--strict-line-length-check", type=str, default="true")
     return parser.parse_args()
 
 
@@ -79,7 +80,9 @@ def validate_subject(subject, sub_char_limit):
     return errors
 
 
-def validate_body(lines, n, body_char_limit, check_blank_line):
+def validate_body(
+    lines, n, body_char_limit, check_blank_line, strict_line_length_check
+):
     """Validate the commit body."""
     errors = []
 
@@ -98,7 +101,12 @@ def validate_body(lines, n, body_char_limit, check_blank_line):
         errors.append("Commit message is missing a body!")
     for line in body:
         if len(line) > body_char_limit:
-            errors.append(f"Line exceeds {body_char_limit} characters: {line}")
+            if strict_line_length_check.lower() == "true":
+                errors.append(f"Line exceeds {body_char_limit} characters: {line}")
+            else:
+                index_of_last_space = line.rfind(" ")
+                if index_of_last_space >= body_char_limit:
+                    errors.append(f"Line exceeds {body_char_limit} characters: {line}")
 
     return errors, body
 
@@ -121,7 +129,9 @@ def validate_trailers(lines, body, check_blank_line):
     return errors
 
 
-def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank_line):
+def validate_commit_message(
+    commit, sub_char_limit, body_char_limit, check_blank_line, strict_line_length_check
+):
     sha = commit["sha"]
     message = commit["message"]
     lines = message.splitlines()
@@ -130,7 +140,9 @@ def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank
 
     errors = []
     subject_errors = validate_subject(subject, sub_char_limit)
-    body_errors, body = validate_body(lines, n, body_char_limit, check_blank_line)
+    body_errors, body = validate_body(
+        lines, n, body_char_limit, check_blank_line, strict_line_length_check
+    )
     trailer_errors = validate_trailers(lines, body, check_blank_line)
 
     errors.extend(subject_errors + body_errors + trailer_errors)
@@ -138,11 +150,13 @@ def validate_commit_message(commit, sub_char_limit, body_char_limit, check_blank
     return sha, errors
 
 
-def process_commits(commits, sub_limit, body_limit, check_blank_line):
+def process_commits(
+    commits, sub_limit, body_limit, check_blank_line, strict_line_length_check
+):
     failed_count = 0
     for commit in commits:
         sha, errors = validate_commit_message(
-            commit, sub_limit, body_limit, check_blank_line
+            commit, sub_limit, body_limit, check_blank_line, strict_line_length_check
         )
         if errors:
             print(f"::group:: ❌ Errors in commit {sha}")
@@ -159,7 +173,11 @@ def main():
     args = parse_arguments()
     commits = fetch_commits(args.base, args.head)
     failed_count = process_commits(
-        commits, args.sub_limit, args.body_limit, args.check_blank_line
+        commits,
+        args.sub_limit,
+        args.body_limit,
+        args.check_blank_line,
+        args.strict_line_length_check,
     )
 
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
