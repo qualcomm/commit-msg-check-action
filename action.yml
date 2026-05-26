@@ -17,13 +17,18 @@ inputs:
 
   sub-char-limit:
     required: false
-    default: "50"
+    default: "72"
     description: "Character limit for subject"
 
   check-blank-line:
     required: false
     default: "true"
     description: "check for a blank line between commit title and body"
+  
+  strict-line-length-check:
+    required: false
+    default: "true"
+    description: "When false, allows exceeding the character limit if the last word is a single token"
 
 runs:
   using: "composite"
@@ -54,4 +59,5 @@ runs:
           --head "${{ inputs.head }}" \
           --body-limit "${{ inputs.body-char-limit }}" \
           --sub-limit "${{ inputs.sub-char-limit }}" \
-          --check-blank-line "${{ inputs.check-blank-line }}"
+          --check-blank-line "${{ inputs.check-blank-line }}" \
+          --strict-line-length-check "${{ inputs.strict-line-length-check }}"

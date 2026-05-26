@@ -27,7 +27,7 @@ def parse_arguments():
         "--head", required=True, help="Head SHA for the range (or single ref)"
     )
     parser.add_argument("--body-limit", type=int, default=72)
-    parser.add_argument("--sub-limit", type=int, default=50)
+    parser.add_argument("--sub-limit", type=int, default=72)
     parser.add_argument("--check-blank-line", type=str, default="true")
     parser.add_argument("--strict-line-length-check", type=str, default="true")
     return parser.parse_args()
