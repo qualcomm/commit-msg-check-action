@@ -33,7 +33,7 @@ Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/
               base: ${{ github.event.pull_request.base.sha }}
               head: ${{ github.event.pull_request.head.sha }}
               body-char-limit: 72
-              sub-char-limit: 50
+              sub-char-limit: 72
               check-blank-line: true
               
 

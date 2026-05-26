@@ -17,7 +17,7 @@ inputs:
 
   sub-char-limit:
     required: false
-    default: "50"
+    default: "72"
     description: "Character limit for subject"
 
   check-blank-line:
