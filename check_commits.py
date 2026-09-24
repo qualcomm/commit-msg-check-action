@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import os
+import re
 import sys
 import argparse
 import subprocess
 
+# Trailers recognised anywhere in the message, not only in the trailing block.
 TRAILER_PREFIXES = (
     "signed-off-by:",
     "co-authored-by:",
@@ -13,7 +15,15 @@ TRAILER_PREFIXES = (
     "reviewed-by:",
     "acked-by:",
     "tested-by:",
+    "assisted-by:",
 )
+
+# A trailer (a.k.a. pseudo-header) is a "Token: value" line, where the token is
+# made of letters, digits and dashes.  This mirrors git's own definition -- see
+# git-interpret-trailers(1) -- so that project-specific trailers such as
+# Assisted-by:, Change-Id:, Fixes: or Closes: are accepted without each having
+# to be listed in TRAILER_PREFIXES above.
+TRAILER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]*:(?:\s|$)")
 
 
 def parse_arguments():
@@ -70,6 +80,41 @@ def fetch_commits(base, head):
         sys.exit(2)
 
 
+def is_trailer(line):
+    """Return True if the line looks like a trailer, e.g. "Acked-by: A <a@b>"."""
+    return bool(TRAILER_RE.match(line)) or line.lower().startswith(TRAILER_PREFIXES)
+
+
+def find_trailer_block(lines):
+    """
+    Return the index of the first line of the trailing trailer block, or
+    len(lines) if the message has no trailer block.
+
+    Trailers form a single contiguous block at the end of the message, the way
+    git itself parses them: a blank line separates the block from the body, but
+    blank lines are not expected *between* individual trailers.
+    """
+    end = len(lines)
+    while end > 0 and lines[end - 1].strip() == "":
+        end -= 1
+
+    start = end
+    while start > 0:
+        line = lines[start - 1]
+        # A trailer value may be folded onto following indented lines.
+        is_continuation = start < end and line.strip() and line[:1].isspace()
+        if is_trailer(line) or is_continuation:
+            start -= 1
+        else:
+            break
+
+    # A folded continuation line cannot open the block.
+    while start < end and not is_trailer(lines[start]):
+        start += 1
+
+    return start if start < end else len(lines)
+
+
 def validate_subject(subject, sub_char_limit):
     """Validate the commit subject line."""
     errors = []
@@ -92,9 +137,11 @@ def validate_body(
         if n > 1 and lines[1].strip() != "":
             errors.append("Subject and body must be separated by a blank line")
         body_index = 2
+    # Trailers are not body text: they are exempt from the line length limit.
+    body_end = min(n, find_trailer_block(lines))
     body = [
         line.strip()
-        for line in lines[body_index:n]
+        for line in lines[body_index:body_end]
         if line.strip() and not line.lower().startswith(TRAILER_PREFIXES)
     ]
     if len(body) == 0:
@@ -114,16 +161,10 @@ def validate_body(
 def validate_trailers(lines, body, check_blank_line):
     errors = []
 
-    trailer_indices = [
-        i for i, line in enumerate(lines) if line.lower().startswith(TRAILER_PREFIXES)
-    ]
-
-    first_trailer_index = 0
-    if trailer_indices:
-        first_trailer_index = trailer_indices[0]
+    trailer_start = find_trailer_block(lines)
 
     if check_blank_line.lower() == "true" and body:
-        if first_trailer_index > 0 and lines[first_trailer_index - 1].strip() != "":
+        if 0 < trailer_start < len(lines) and lines[trailer_start - 1].strip() != "":
             errors.append("Body and trailers must be separated by a blank line")
 
     return errors
