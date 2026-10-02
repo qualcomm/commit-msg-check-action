@@ -237,6 +237,125 @@ class TestCheckCommits(unittest.TestCase):
         )
         self.assertIn("Line exceeds 72 characters", "".join(errors))
 
+    def test_contiguous_trailer_block_passes(self):
+        """Trailers form one block; no blank line is needed between them."""
+        commit = {
+            "sha": "trailer1",
+            "message": (
+                "Valid subject\n\n"
+                "This is a valid description line.\n\n"
+                'Fixes: 54a4f0239f2e ("Some earlier commit")\n'
+                "Assisted-by: Claude Code:claude-opus-5\n"
+                "Co-developed-by: Other Dev <other@example.com>\n"
+                "Signed-off-by: Other Dev <other@example.com>\n"
+                "Signed-off-by: Developer <dev@example.com>\n"
+            ),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
+        )
+        self.assertEqual(errors, [])
+
+    def test_unknown_trailer_is_not_body(self):
+        """A trailer-shaped line in the block is not counted as the body."""
+        commit = {
+            "sha": "trailer2",
+            "message": (
+                "Valid subject\n\n"
+                "Change-Id: I0123456789abcdef0123456789abcdef01234567\n"
+                "Signed-off-by: Developer <dev@example.com>\n"
+            ),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
+        )
+        self.assertIn("Commit message is missing a body!", errors)
+
+    def test_long_trailer_exempt_from_line_length(self):
+        commit = {
+            "sha": "trailer3",
+            "message": (
+                "Valid subject\n\n"
+                "This is a valid description line.\n\n"
+                "Closes: https://example.com/issues/" + "1" * 80 + "\n"
+                "Signed-off-by: Developer <dev@example.com>\n"
+            ),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
+        )
+        self.assertEqual(errors, [])
+
+    def test_trailers_directly_after_body_still_fails(self):
+        commit = {
+            "sha": "trailer4",
+            "message": (
+                "Valid subject\n\n"
+                "This is a valid description line.\n"
+                "Signed-off-by: Developer <dev@example.com>\n"
+            ),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
+        )
+        self.assertIn("Body and trailers must be separated by a blank line", errors)
+
+    def test_folded_trailer_value_passes(self):
+        commit = {
+            "sha": "trailer5",
+            "message": (
+                "Valid subject\n\n"
+                "This is a valid description line.\n\n"
+                "Acked-by: The Stakeholder <stakeholder@example.org>\n"
+                "Link: https://lore.kernel.org/some-message-id\n"
+                "  continued on an indented line\n"
+                "Signed-off-by: Developer <dev@example.com>\n"
+            ),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
+        )
+        self.assertEqual(errors, [])
+
+    def test_body_line_with_colon_is_still_body(self):
+        """A "Word: text" line above the trailer block stays body text."""
+        commit = {
+            "sha": "trailer6",
+            "message": (
+                "Valid subject\n\n"
+                "Note: " + "a" * 80 + "\n\n"
+                "Signed-off-by: Developer <dev@example.com>\n"
+            ),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
+        )
+        self.assertIn("Line exceeds 72 characters", "".join(errors))
+
 
 if __name__ == "__main__":
     unittest.main()

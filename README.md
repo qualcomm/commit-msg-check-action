@@ -3,7 +3,7 @@ This GitHub Action enforces consistent commit message formatting for Qualcomm pr
 
 - Commit Subject : Verifies that a subject line is present and does not exceed the specified character limit.
 - Commit Body : Ensures a body is provided and that each line adheres to the defined word wrap limit.
-- Check Blank Line Flag: When true, ensures a blank line between the commit subject, body, and Signed-off-by signature for better readability.
+- Check Blank Line Flag: When true, ensures a blank line between the commit subject, body, and the trailer block (`Signed-off-by:`, `Co-developed-by:`, `Assisted-by:`, …) for better readability. Trailers are recognised by shape (`Token: value`), so project-specific ones need no configuration, and — as with `git interpret-trailers` — they are expected to form one contiguous block with no blank lines between individual trailers.
 - Strict Line Length Check Flag: When false, allows exceeding the character limit if the last word is a single token.
 
 # Usage
