@@ -403,3 +403,67 @@ class TestCheckCommits(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSkipDependabot(unittest.TestCase):
+    def setUp(self):
+        # Real Dependabot commit, see qualcomm-linux/qcom-deb-images#833.
+        self.dependabot_commit = {
+            "sha": "e4095e1",
+            "message": (
+                "chore(deps): Bump qualcomm/qcom-reusable-workflows/.github/"
+                "actions/test-job-summary\n"
+                "Bumps [qualcomm/qcom-reusable-workflows/.github/actions/"
+                "test-job-summary](https://github.com/qualcomm/"
+                "qcom-reusable-workflows) from 2.0.15 to 2.0.16.\n"
+                "- [Release notes](https://github.com/qualcomm/"
+                "qcom-reusable-workflows/releases)\n\n"
+                "---\n"
+                "updated-dependencies:\n"
+                "- dependency-name: qualcomm/qcom-reusable-workflows/.github/"
+                "actions/test-job-summary\n"
+                "  dependency-version: 2.0.16\n"
+                "...\n\n"
+                "Signed-off-by: dependabot[bot] <support@github.com>\n"
+            ),
+        }
+
+    def run_process(self, skip_dependabot, pr_author):
+        buf = StringIO()
+        with redirect_stdout(buf):
+            failed = check_commits.process_commits(
+                [self.dependabot_commit],
+                sub_limit=72,
+                body_limit=72,
+                check_blank_line="true",
+                strict_line_length_check="true",
+                skip_dependabot=skip_dependabot,
+                pr_author=pr_author,
+            )
+        return failed, buf.getvalue()
+
+    def test_skip_dependabot_defaults_to_true(self):
+        argv = ["check_commits.py", "--base", "1111111", "--head", "2222222"]
+        with patch.object(sys, "argv", argv):
+            args = check_commits.parse_arguments()
+        self.assertEqual(args.skip_dependabot, "true")
+
+    def test_dependabot_pr_skipped(self):
+        failed, out = self.run_process("true", "dependabot[bot]")
+        self.assertEqual(failed, 0)
+        self.assertIn("opened by dependabot[bot], skipping checks", out)
+
+    def test_dependabot_pr_checked_when_disabled(self):
+        failed, out = self.run_process("false", "dependabot[bot]")
+        self.assertEqual(failed, 1)
+        self.assertIn("Subject exceeds 72 characters!", out)
+
+    def test_other_pr_checked(self):
+        # A Dependabot-looking commit message does not matter, only who
+        # opened the pull request.
+        failed, _ = self.run_process("true", "mallory")
+        self.assertEqual(failed, 1)
+
+    def test_no_pr_checked(self):
+        failed, _ = self.run_process("true", "")
+        self.assertEqual(failed, 1)

@@ -25,6 +25,13 @@ TRAILER_PREFIXES = (
 # to be listed in TRAILER_PREFIXES above.
 TRAILER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]*:(?:\s|$)")
 
+# Dependabot writes its own commit messages and their line lengths cannot be
+# configured, so its pull requests would always fail the length checks.  The
+# pull request author is set by GitHub in the event payload and, unlike the
+# commit author, cannot be forged by a contributor, so it is what identifies
+# Dependabot here.
+DEPENDABOT_LOGIN = "dependabot[bot]"
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -41,6 +48,12 @@ def parse_arguments():
     parser.add_argument("--check-blank-line", type=str, default="true")
     parser.add_argument("--strict-line-length-check", type=str, default="true")
     parser.add_argument("--allow-empty-body", type=str, default="false")
+    parser.add_argument("--skip-dependabot", type=str, default="true")
+    parser.add_argument(
+        "--pr-author",
+        default="",
+        help="Login of the pull request author, as reported by GitHub",
+    )
     return parser.parse_args()
 
 
@@ -214,7 +227,13 @@ def process_commits(
     check_blank_line,
     strict_line_length_check,
     allow_empty_body="false",
+    skip_dependabot="false",
+    pr_author="",
 ):
+    if skip_dependabot.lower() == "true" and pr_author == DEPENDABOT_LOGIN:
+        print(f"⏭️ Pull request opened by {DEPENDABOT_LOGIN}, skipping checks.")
+        return 0
+
     failed_count = 0
     for commit in commits:
         sha, errors = validate_commit_message(
@@ -246,6 +265,8 @@ def main():
         args.check_blank_line,
         args.strict_line_length_check,
         args.allow_empty_body,
+        args.skip_dependabot,
+        args.pr_author,
     )
 
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")

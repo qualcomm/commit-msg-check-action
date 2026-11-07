@@ -35,6 +35,15 @@ inputs:
     default: "false"
     description: "When true, allows commit messages with subject (and trailers) only, omitting a body"
 
+  # Dependabot's commit messages cannot be configured to fit the length
+  # limits, so its pull requests are skipped by default. Dependabot is
+  # identified by the pull request author from the GitHub event payload,
+  # which contributors cannot forge.
+  skip-dependabot:
+    required: false
+    default: "true"
+    description: "When true, skips the checks on pull requests opened by Dependabot"
+
 runs:
   using: "composite"
   steps:
@@ -66,6 +75,8 @@ runs:
         ACTION_CHECK_BLANK_LINE: ${{ inputs.check-blank-line }}
         ACTION_STRICT_LINE_LENGTH: ${{ inputs.strict-line-length-check }}
         ACTION_ALLOW_EMPTY_BODY: ${{ inputs.allow-empty-body }}
+        ACTION_SKIP_DEPENDABOT: ${{ inputs.skip-dependabot }}
+        ACTION_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
       run: |
         python "$GITHUB_ACTION_PATH/check_commits.py" \
           --base "$ACTION_BASE" \
@@ -74,4 +85,6 @@ runs:
           --sub-limit "$ACTION_SUB_LIMIT" \
           --check-blank-line "$ACTION_CHECK_BLANK_LINE" \
           --strict-line-length-check "$ACTION_STRICT_LINE_LENGTH" \
-          --allow-empty-body "$ACTION_ALLOW_EMPTY_BODY"
+          --allow-empty-body "$ACTION_ALLOW_EMPTY_BODY" \
+          --skip-dependabot "$ACTION_SKIP_DEPENDABOT" \
+          --pr-author "$ACTION_PR_AUTHOR"
