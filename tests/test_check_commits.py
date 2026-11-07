@@ -400,6 +400,151 @@ class TestCheckCommits(unittest.TestCase):
         )
         self.assertIn("Line exceeds 72 characters", "".join(errors))
 
+    def test_parse_arguments_allow_long_urls_default_true(self):
+        argv = ["check_commits.py", "--base", "1111111", "--head", "2222222"]
+        with patch.object(sys, "argv", argv):
+            args = check_commits.parse_arguments()
+        self.assertEqual(args.allow_long_urls, "true")
+
+    def test_parse_arguments_allow_long_urls_false(self):
+        argv = [
+            "check_commits.py",
+            "--base",
+            "1111111",
+            "--head",
+            "2222222",
+            "--allow-long-urls",
+            "false",
+        ]
+        with patch.object(sys, "argv", argv):
+            args = check_commits.parse_arguments()
+        self.assertEqual(args.allow_long_urls, "false")
+
+    def test_only_urls_exceed_limit(self):
+        url = "https://example.com/" + "a" * 100
+        self.assertTrue(check_commits.only_urls_exceed_limit(url, 72))
+        self.assertTrue(check_commits.only_urls_exceed_limit("[1] " + url, 72))
+        self.assertTrue(check_commits.only_urls_exceed_limit("<" + url + ">", 72))
+        self.assertTrue(check_commits.only_urls_exceed_limit("(" + url + ").", 72))
+        self.assertTrue(
+            check_commits.only_urls_exceed_limit("git://example.org/" + "a" * 80, 72)
+        )
+        self.assertTrue(check_commits.only_urls_exceed_limit("short line", 72))
+        self.assertFalse(check_commits.only_urls_exceed_limit(url + " for details", 72))
+        self.assertFalse(check_commits.only_urls_exceed_limit("a" * 80, 72))
+        self.assertFalse(
+            check_commits.only_urls_exceed_limit("example.com/" + "a" * 80, 72)
+        )
+        self.assertFalse(
+            check_commits.only_urls_exceed_limit(
+                "See https://example.com/x " + "word " * 15, 72
+            )
+        )
+
+    def _validate_long_urls(self, body, strict="true", allow_long_urls="true"):
+        commit = {
+            "sha": "url1",
+            "message": (
+                "Valid subject\n\n"
+                + body
+                + "\n\nSigned-off-by: Developer <dev@example.com>\n"
+            ),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check=strict,
+            allow_empty_body="false",
+            allow_long_urls=allow_long_urls,
+        )
+        return errors
+
+    def test_allow_long_urls_strict_url_passes(self):
+        url = "https://www.example.com/" + "a" * 100
+        self.assertEqual(self._validate_long_urls(url), [])
+
+    def test_allow_long_urls_reference_style_url_passes(self):
+        url = "https://www.example.com/" + "a" * 100
+        body = "This change is described in the bug report [1].\n\n[1] " + url
+        self.assertEqual(self._validate_long_urls(body), [])
+
+    def test_allow_long_urls_indented_url_passes(self):
+        url = "https://www.example.com/" + "a" * 100
+        body = "This change is described in the bug report:\n\n    " + url
+        self.assertEqual(self._validate_long_urls(body), [])
+
+    def test_allow_long_urls_text_after_url_fails(self):
+        url = "https://www.example.com/" + "a" * 100
+        errors = self._validate_long_urls("See " + url + " for details.")
+        self.assertIn("Line exceeds 72 characters", "".join(errors))
+
+    def test_allow_long_urls_text_after_url_fails_non_strict(self):
+        url = "https://www.example.com/" + "a" * 100
+        errors = self._validate_long_urls("See " + url + " for details.", "false")
+        self.assertIn("Line exceeds 72 characters", "".join(errors))
+
+    def test_allow_long_urls_long_prose_with_short_url_fails(self):
+        body = "See https://example.com/x " + "and some more words " * 4
+        errors = self._validate_long_urls(body)
+        self.assertIn("Line exceeds 72 characters", "".join(errors))
+
+    def test_allow_long_urls_long_non_url_word_fails(self):
+        errors = self._validate_long_urls("a" * 80)
+        self.assertIn("Line exceeds 72 characters", "".join(errors))
+
+    def test_allow_long_urls_only_reports_other_long_lines(self):
+        url = "https://www.example.com/" + "a" * 100
+        prose = "word " * 20
+        errors = self._validate_long_urls(url + "\n" + prose)
+        self.assertEqual(errors, [f"Line exceeds 72 characters: {prose.strip()}"])
+
+    def test_allow_long_urls_false_url_fails(self):
+        url = "https://www.example.com/" + "a" * 100
+        errors = self._validate_long_urls(url, allow_long_urls="false")
+        self.assertIn("Line exceeds 72 characters", "".join(errors))
+
+    def test_allow_long_urls_does_not_affect_subject(self):
+        commit = {
+            "sha": "url2",
+            "message": (
+                "Fix https://www.example.com/" + "a" * 60 + "\n\n"
+                "This is a valid description line.\n"
+            ),
+        }
+        _sha, errors = check_commits.validate_commit_message(
+            commit,
+            sub_char_limit=50,
+            body_char_limit=72,
+            check_blank_line="true",
+            strict_line_length_check="true",
+            allow_long_urls="true",
+        )
+        self.assertIn("Subject exceeds 50 characters!", errors)
+
+    def test_process_commits_allow_long_urls(self):
+        commit = {
+            "sha": "url3",
+            "message": (
+                "Valid subject\n\n"
+                "Link to the report:\n"
+                "https://www.example.com/" + "a" * 100 + "\n"
+            ),
+        }
+        buf = StringIO()
+        with redirect_stdout(buf):
+            failed = check_commits.process_commits(
+                [commit],
+                sub_limit=50,
+                body_limit=72,
+                check_blank_line="true",
+                strict_line_length_check="true",
+                allow_long_urls="true",
+            )
+        self.assertEqual(failed, 0)
+        self.assertIn("✅ Commit url3 passed all checks.", buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

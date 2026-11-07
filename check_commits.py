@@ -25,6 +25,12 @@ TRAILER_PREFIXES = (
 # to be listed in TRAILER_PREFIXES above.
 TRAILER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]*:(?:\s|$)")
 
+# A URL is a "scheme://..." token.  URLs cannot be wrapped without breaking
+# them, so --allow-long-urls lets them run past the body line length limit.
+# It defaults to true: callers usually reach this action through reusable
+# workflows, so an opt-in input would rarely be passed through to it.
+URL_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S")
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -41,6 +47,7 @@ def parse_arguments():
     parser.add_argument("--check-blank-line", type=str, default="true")
     parser.add_argument("--strict-line-length-check", type=str, default="true")
     parser.add_argument("--allow-empty-body", type=str, default="false")
+    parser.add_argument("--allow-long-urls", type=str, default="true")
     return parser.parse_args()
 
 
@@ -116,6 +123,19 @@ def find_trailer_block(lines):
     return start if start < end else len(lines)
 
 
+def only_urls_exceed_limit(line, limit):
+    """
+    Return True if every word of the line that reaches past the limit is a URL.
+
+    Text after a long URL could still be wrapped onto the next line, so it is
+    not exempt.
+    """
+    for word in re.finditer(r"\S+", line):
+        if word.end() > limit and not URL_RE.search(word.group()):
+            return False
+    return True
+
+
 def validate_subject(subject, sub_char_limit):
     """Validate the commit subject line."""
     errors = []
@@ -133,6 +153,7 @@ def validate_body(
     check_blank_line,
     strict_line_length_check,
     allow_empty_body,
+    allow_long_urls,
 ):
     """Validate the commit body."""
     errors = []
@@ -154,6 +175,10 @@ def validate_body(
         errors.append("Commit message is missing a body!")
     for line in body:
         if len(line) > body_char_limit:
+            if allow_long_urls.lower() == "true" and only_urls_exceed_limit(
+                line, body_char_limit
+            ):
+                continue
             if strict_line_length_check.lower() == "true":
                 errors.append(f"Line exceeds {body_char_limit} characters: {line}")
             else:
@@ -183,6 +208,7 @@ def validate_commit_message(
     check_blank_line,
     strict_line_length_check,
     allow_empty_body="false",
+    allow_long_urls="false",
 ):
     sha = commit["sha"]
     message = commit["message"]
@@ -199,6 +225,7 @@ def validate_commit_message(
         check_blank_line,
         strict_line_length_check,
         allow_empty_body,
+        allow_long_urls,
     )
     trailer_errors = validate_trailers(lines, body, check_blank_line)
 
@@ -214,6 +241,7 @@ def process_commits(
     check_blank_line,
     strict_line_length_check,
     allow_empty_body="false",
+    allow_long_urls="false",
 ):
     failed_count = 0
     for commit in commits:
@@ -224,6 +252,7 @@ def process_commits(
             check_blank_line,
             strict_line_length_check,
             allow_empty_body,
+            allow_long_urls,
         )
         if errors:
             print(f"::group:: ❌ Errors in commit {sha}")
@@ -246,6 +275,7 @@ def main():
         args.check_blank_line,
         args.strict_line_length_check,
         args.allow_empty_body,
+        args.allow_long_urls,
     )
 
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")

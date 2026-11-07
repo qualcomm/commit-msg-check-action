@@ -6,6 +6,7 @@ This GitHub Action enforces consistent commit message formatting for Qualcomm pr
 - Check Blank Line Flag: When true, ensures a blank line between the commit subject, body, and the trailer block (`Signed-off-by:`, `Co-developed-by:`, `Assisted-by:`, …) for better readability. Trailers are recognised by shape (`Token: value`), so project-specific ones need no configuration, and — as with `git interpret-trailers` — they are expected to form one contiguous block with no blank lines between individual trailers.
 - Strict Line Length Check Flag: When false, allows exceeding the character limit if the last word is a single token.
 - Allow Empty Body Flag: Optional (default: false). When true, allows commit messages with only a subject line (and optional trailers such as `Signed-off-by:`), omitting a body. When false, the commit body requirement remains active.
+- Allow Long URLs Flag: Optional (default: true). When true, a body line may exceed the word wrap limit if every word extending past the limit is a URL (`scheme://…`), since URLs cannot be wrapped. Text after a long URL must still be wrapped onto the next line. This applies regardless of the Strict Line Length Check Flag. It is on by default because most projects call this action through reusable workflows, where an opt-in input would rarely be passed through. Set it to false to require every body line to fit the limit.
 
 # Usage
 Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/commit-check.yml
@@ -39,6 +40,7 @@ Create a new GitHub Actions workflow in your project, e.g. at .github/workflows/
               check-blank-line: true
               strict-line-length-check: true
               allow-empty-body: false
+              allow-long-urls: true
 
 
 ## Getting in Contact
