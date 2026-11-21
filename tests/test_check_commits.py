@@ -381,6 +381,36 @@ class TestCheckCommits(unittest.TestCase):
         )
         self.assertEqual(errors, [])
 
+    def test_cherry_pick_line_is_part_of_trailer_block(self):
+        """`git cherry-pick -x` appends its line to the trailer block."""
+        for name, message in (
+            (
+                "long trailer above",
+                "Valid subject\n\n"
+                "This is a valid description line.\n\n"
+                "Closes: https://example.com/issues/" + "1" * 80 + "\n"
+                "Signed-off-by: Developer <dev@example.com>\n"
+                "(cherry picked from commit " + "0" * 40 + ")\n",
+            ),
+            (
+                "sign-off below",
+                "Valid subject\n\n"
+                "This is a valid description line.\n\n"
+                "Signed-off-by: Developer <dev@example.com>\n"
+                "(cherry picked from commit " + "0" * 40 + ")\n"
+                "Signed-off-by: Backporter <backport@example.com>\n",
+            ),
+        ):
+            with self.subTest(name):
+                _sha, errors = check_commits.validate_commit_message(
+                    {"sha": "cherry1", "message": message},
+                    sub_char_limit=50,
+                    body_char_limit=72,
+                    check_blank_line="true",
+                    strict_line_length_check="true",
+                )
+                self.assertEqual(errors, [])
+
     def test_body_line_with_colon_is_still_body(self):
         """A "Word: text" line above the trailer block stays body text."""
         commit = {
