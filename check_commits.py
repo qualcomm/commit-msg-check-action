@@ -18,6 +18,11 @@ TRAILER_PREFIXES = (
     "assisted-by:",
 )
 
+# Lines that git itself puts in the trailer block although they are not
+# "Token: value" lines: `git cherry-pick -x` appends "(cherry picked from
+# commit <sha>)" there, and git keeps parsing the lines around it as trailers.
+GIT_GENERATED_PREFIXES = ("(cherry picked from commit ",)
+
 # A trailer (a.k.a. pseudo-header) is a "Token: value" line, where the token is
 # made of letters, digits and dashes.  This mirrors git's own definition -- see
 # git-interpret-trailers(1) -- so that project-specific trailers such as
@@ -83,7 +88,11 @@ def fetch_commits(base, head):
 
 def is_trailer(line):
     """Return True if the line looks like a trailer, e.g. "Acked-by: A <a@b>"."""
-    return bool(TRAILER_RE.match(line)) or line.lower().startswith(TRAILER_PREFIXES)
+    return (
+        bool(TRAILER_RE.match(line))
+        or line.lower().startswith(TRAILER_PREFIXES)
+        or line.startswith(GIT_GENERATED_PREFIXES)
+    )
 
 
 def find_trailer_block(lines):
